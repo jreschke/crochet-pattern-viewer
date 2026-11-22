@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101c28">
+<title>Crochet Pattern Viewer</title>
+<style>
+  :root { color-scheme:dark; --blue:#5aa9e6; --blue-soft:rgba(90,169,230,.14); --green:#4fd1a0; --green-soft:rgba(79,209,160,.14);
+          --done:#5d6d7e; --bg:#0d1620; --card:#152230; --line:#24384a; --text:#e2ebf3; --muted:#8fa3b6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { position:sticky; top:0; z-index:5; background:#101c28; border-bottom:1px solid var(--line); padding:10px 20px; display:flex; gap:16px; align-items:center; }
+  header h1 { font-size:18px; margin:0; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bar { width:180px; height:8px; background:var(--line); border-radius:4px; overflow:hidden; }
+  .bar > i { display:block; height:100%; background:linear-gradient(90deg, var(--blue), var(--green)); width:0; transition:width .2s; }
+  button { font:inherit; font-size:14px; border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:8px; padding:6px 12px; cursor:pointer; }
+  button:hover { border-color:var(--blue); }
+  button.primary { background:var(--green); border-color:var(--green); color:#06231a; font-weight:600; }
+  button:focus-visible, .row:focus-visible { outline:3px solid var(--blue); outline-offset:2px; }
+  code { color:var(--green); }
+  #editor { max-width:900px; margin:24px auto; padding:0 20px; }
+  #editor textarea { width:100%; height:65vh; font:14px/1.5 ui-monospace, Menlo, monospace; padding:12px; background:var(--card); color:var(--text); border:1px solid var(--line); border-radius:10px; }
+  #editor p { color:var(--muted); font-size:14px; }
+  #viewer { display:flex; max-width:1100px; margin:0 auto; }
+  nav { width:230px; flex-shrink:0; position:sticky; top:56px; align-self:flex-start; padding:20px 10px; max-height:calc(100vh - 56px); overflow:auto; }
+  nav a { display:flex; justify-content:space-between; padding:6px 10px; border-radius:8px; color:inherit; text-decoration:none; font-size:14px; }
+  nav a:hover { background:var(--blue-soft); }
+  nav a small { color:var(--muted); }
+  nav a.complete { color:var(--green); }
+  main { flex:1; padding:20px; min-width:0; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:8px 20px 16px; margin-bottom:20px; }
+  h2 { font-size:20px; margin:12px 0 8px; color:var(--blue); }
+  h3 { font-size:16px; margin:14px 0 6px; color:var(--green); }
+  .note { background:var(--green-soft); border-left:4px solid var(--green); padding:6px 12px; border-radius:6px; margin:6px 0; font-size:15px; }
+  .row { display:flex; gap:12px; align-items:flex-start; padding:8px 10px; border-radius:10px; cursor:pointer; user-select:none; border:2px solid transparent; }
+  .row:hover { background:rgba(255,255,255,.03); }
+  .row .lbl { font-weight:600; min-width:78px; color:var(--blue); }
+  .row .txt { flex:1; }
+  .row .cnt { background:var(--green-soft); color:var(--green); border-radius:999px; padding:0 10px; font-size:13px; font-weight:600; white-space:nowrap; }
+  .row .rep { font-size:13px; color:var(--muted); white-space:nowrap; }
+  .row.done { color:var(--done); }
+  .row.done .txt { text-decoration:line-through; }
+  .row.done .lbl, .row.done .cnt { color:var(--done); background:transparent; }
+  .row.current { border-color:var(--blue); background:var(--blue-soft); }
+  abbr { text-decoration:underline dotted; cursor:help; }
+  @media (max-width:700px) { nav { display:none; } .bar { width:80px; } header { flex-wrap:wrap; } header h1 { flex-basis:100%; } main { padding:10px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Crochet Pattern Viewer</h1>
+  <div class="bar" role="progressbar" aria-label="Pattern progress"><i id="prog"></i></div>
+  <span id="pct" style="font-size:14px;min-width:40px">0%</span>
+  <button id="nextBtn" class="primary" title="Mark current row done (Space)">Next row ✓</button>
+  <button id="termsBtn" title="Switch stitch names between US and UK terms">US terms</button>
+  <button id="editBtn">Edit pattern</button>
+  <button id="resetBtn">Reset progress</button>
+</header>
+
+<div id="editor">
+  <p>Paste a pattern below. Lines like <code>Rnd 1: 6 sc in magic ring (6)</code>, <code>Row 3-5: ...</code> or <code>11-12: ...</code> become rows.
+     Lines ending in <code>:</code> become headings (ALL CAPS = new part; start a line with <code>#</code> to force a new part).
+     Everything else is shown as a note. The first line is the title.</p>
+  <textarea id="src" spellcheck="false">My Amigurumi Ball
+Materials:
+Worsted weight yarn
+G hook
+
+BODY:
+Rnd 1: 6 sc in magic ring (6)
+Rnd 2: 2 sc in each sc around (12)
+Rnd 3: *sc in next sc, 2 sc in next sc* around (18)
+Rnd 4-6: sc in each sc around (18)
+Begin stuffing at this point.
+Rnd 7: *sc in next sc, dec* around (12)
+Rnd 8: dec around (6)
+F/O and weave in ends.</textarea>
+  <p><button id="viewBtn" class="primary">Open in viewer →</button></p>
+</div>
+
+<div id="viewer" hidden>
+  <nav id="toc" aria-label="Sections"></nav>
+  <main id="out"></main>
+</div>
+
+<script>
+const ABBR = {
+  sc:'single crochet', hdc:'half double crochet', dc:'double crochet', tr:'treble crochet',
+  'sl st':'slip stitch', slst:'slip stitch', ch:'chain', inc:'increase (2 sts in one)', dec:'decrease (2 sts together)',
+  'f/o':'fasten off', fo:'fasten off', blo:'back loop only', flo:'front loop only', st:'stitch', sts:'stitches',
+  mr:'magic ring', rnd:'round', sk:'skip', sp:'space', tog:'together', rep:'repeat', yo:'yarn over',
+  htr:'half treble crochet', dtr:'double treble crochet'
+};
+// US → UK stitch names; patterns are assumed to be written in US terms
+const UK = { sc:'dc', hdc:'htr', dc:'tr', tr:'dtr' };
+let uk = localStorage.getItem('crochet:uk') === '1';
+const ROW_RE = /^(rnd|round|row)?s?\s*(\d+)(?:\s*[-–]\s*(\d+))?\s*[:,.]\s*(.+)$/i;
+const COUNT_RE = /[,\s]*\((\d+)\)\s*\.?\s*$/;
+
+// Turns raw text into {title, sections:[{name, items:[{type:'h3'|'note'|'row', ...}]}]}
+function parse(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const title = lines.shift() || 'Untitled pattern';
+  const sections = [];
+  let cur = null, n = 0;
+  const newSection = name => sections.push(cur = { name, items: [] });
+  for (const line of lines) {
+    const m = line.match(ROW_RE);
+    if (m) {
+      if (!cur) newSection('Pattern');
+      let txt = m[4], count = null;
+      const c = txt.match(COUNT_RE);
+      if (c) { count = +c[1]; txt = txt.slice(0, c.index); }
+      const from = +m[2], to = m[3] ? +m[3] : from;
+      const kind = m[1] ? (/^row/i.test(m[1]) ? 'Row' : 'Rnd') : '';
+      cur.items.push({ type:'row', id:n++, label:`${kind} ${from}${to > from ? '–' + to : ''}`.trim(), text:txt, count, reps: Math.max(1, to - from + 1) });
+    } else if (line.startsWith('#')) {
+      newSection(line.replace(/^#+\s*/, '').replace(/:$/, ''));
+    } else if (line.endsWith(':') && line.length <= 40) {
+      const name = line.slice(0, -1);
+      if (!cur || name === name.toUpperCase()) newSection(name);
+      else cur.items.push({ type:'h3', text:name });
+    } else {
+      if (!cur) newSection('Notes');
+      cur.items.push({ type:'note', text:line });
+    }
+  }
+  return { title, sections, total:n };
+}
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const abbrRe = new RegExp('\\b(' + Object.keys(ABBR).sort((a,b)=>b.length-a.length).map(k => k.replace('/', '\\/')).join('|') + ')\\b', 'gi');
+const withAbbr = s => esc(s).replace(abbrRe, w => {
+  const us = w.toLowerCase(), to = uk && UK[us];
+  if (!to) return `<abbr title="${ABBR[us]}">${w}</abbr>`;
+  const shown = w[0] === w[0].toUpperCase() ? to[0].toUpperCase() + to.slice(1) : to; // keep "Sc" → "Dc"
+  return `<abbr title="${ABBR[to]} (UK) = US ${ABBR[us]}">${shown}</abbr>`;
+});
+
+// self-check of the parser (shows in console)
+(() => {
+  const p = parse('T\nBODY:\nRnd 1: 6 sc in magic ring (6)\nRnd 7-12: sc in each sc around (36)\n11-12: sc around, (4)\nRow 13: ch 1 and turn (6)\nBegin stuffing.\nLeft Leg:\nTail:\n#Tail');
+  const r = p.sections[0].items.filter(i => i.type === 'row');
+  console.assert(p.total === 4 && r[1].reps === 6 && r[1].count === 36 && r[2].count === 4 && r[2].label === '11–12' && r[3].label === 'Row 13', 'row parse');
+  console.assert(p.sections.length === 2 && p.sections[0].items.some(i => i.type === 'h3' && i.text === 'Left Leg'), 'section parse');
+})();
+
+const $ = id => document.getElementById(id);
+let pat, state; // state: {rowId: repetitions done}
+const key = () => 'crochet:' + $('src').value.length + ':' + $('src').value.slice(0, 200);
+const save = () => { localStorage.setItem(key(), JSON.stringify(state)); localStorage.setItem('crochet:last', $('src').value); };
+const rows = () => pat.sections.flatMap(s => s.items.filter(i => i.type === 'row'));
+const isDone = r => (state[r.id] || 0) >= r.reps;
+
+function render() {
+  $('title').textContent = pat.title;
+  document.title = pat.title;
+  $('out').innerHTML = pat.sections.map((s, si) => `<section id="s${si}"><h2>${esc(s.name)}</h2>${s.items.map(i =>
+    i.type === 'h3' ? `<h3>${esc(i.text)}</h3>` :
+    i.type === 'note' ? `<div class="note">${withAbbr(i.text)}</div>` :
+    `<div class="row" tabindex="0" role="checkbox" data-id="${i.id}"><span class="lbl">${esc(i.label)}</span><span class="txt">${withAbbr(i.text)}</span>${i.reps > 1 ? `<span class="rep"></span>` : ''}${i.count != null ? `<span class="cnt">${i.count} sts</span>` : ''}</div>`
+  ).join('')}</section>`).join('');
+  refresh();
+}
+
+function refresh() {
+  const all = rows();
+  const reps = all.reduce((a, r) => a + r.reps, 0) || 1;
+  const done = all.reduce((a, r) => a + Math.min(state[r.id] || 0, r.reps), 0);
+  const current = all.find(r => !isDone(r));
+  $('prog').style.width = $('pct').textContent = Math.round(done / reps * 100) + '%';
+  for (const el of document.querySelectorAll('.row')) {
+    const r = all[el.dataset.id];
+    el.classList.toggle('done', isDone(r));
+    el.classList.toggle('current', r === current);
+    el.setAttribute('aria-checked', isDone(r));
+    const rep = el.querySelector('.rep');
+    if (rep) rep.textContent = `${state[r.id] || 0}/${r.reps}`;
+  }
+  $('toc').innerHTML = pat.sections.map((s, si) => {
+    const rs = s.items.filter(i => i.type === 'row');
+    const d = rs.filter(isDone).length;
+    return `<a href="#s${si}" class="${rs.length && d === rs.length ? 'complete' : ''}">${esc(s.name)}<small>${rs.length ? d + '/' + rs.length : ''}</small></a>`;
+  }).join('');
+  save();
+}
+
+// click a row: one more repetition; clicking a finished row un-does it
+function tap(r) { state[r.id] = isDone(r) ? 0 : (state[r.id] || 0) + 1; refresh(); }
+
+$('out').addEventListener('click', e => { const el = e.target.closest('.row'); if (el) tap(rows()[el.dataset.id]); });
+$('out').addEventListener('keydown', e => { const el = e.target.closest('.row'); if (el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); tap(rows()[el.dataset.id]); } });
+document.addEventListener('keydown', e => { if (e.key === ' ' && !$('viewer').hidden && !e.target.closest('.row, button, textarea')) { e.preventDefault(); next(); } });
+function next() {
+  const r = pat && rows().find(r => !isDone(r));
+  if (!r) return;
+  tap(r);
+  document.querySelector('.row.current')?.scrollIntoView({ block:'center', behavior:'smooth' });
+}
+$('nextBtn').onclick = next;
+$('viewBtn').onclick = () => {
+  pat = parse($('src').value);
+  state = JSON.parse(localStorage.getItem(key()) || '{}');
+  $('editor').hidden = true; $('viewer').hidden = false;
+  render();
+};
+const showTerms = () => { $('termsBtn').textContent = uk ? 'UK terms' : 'US terms'; $('termsBtn').setAttribute('aria-pressed', uk); };
+showTerms();
+$('termsBtn').onclick = () => {
+  uk = !uk; localStorage.setItem('crochet:uk', uk ? '1' : '0'); showTerms();
+  if (pat) render();
+};
+$('editBtn').onclick =() => { $('viewer').hidden = true; $('editor').hidden = false; };
+$('resetBtn').onclick = () => { if (pat && confirm('Clear all progress for this pattern?')) { state = {}; refresh(); } };
+
+const last = localStorage.getItem('crochet:last');
+if (last) $('src').value = last;
+</script>
+</body>
+</html>
