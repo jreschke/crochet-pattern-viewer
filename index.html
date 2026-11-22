@@ -212,7 +212,19 @@ $('termsBtn').onclick = () => {
   if (pat) render();
 };
 $('editBtn').onclick =() => { $('viewer').hidden = true; $('editor').hidden = false; };
-$('resetBtn').onclick = () => { if (pat && confirm('Clear all progress for this pattern?')) { state = {}; refresh(); } };
+// two-tap confirm on the button itself: native confirm() is blocked in some browsers and returns false
+let resetArmed = null;
+$('resetBtn').onclick = () => {
+  if (!pat) return;
+  if (!resetArmed) {
+    $('resetBtn').textContent = 'Tap again to reset';
+    resetArmed = setTimeout(() => { resetArmed = null; $('resetBtn').textContent = 'Reset progress'; }, 3000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  $('resetBtn').textContent = 'Reset progress';
+  state = {}; refresh();
+};
 
 const last = localStorage.getItem('crochet:last');
 if (last) $('src').value = last;
